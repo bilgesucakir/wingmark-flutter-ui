@@ -105,9 +105,11 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
     }
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       try {
+        // First page only — this is a live-search-as-you-type dropdown, not
+        // a browsable list, so 20 results is plenty.
         final results =
-            await context.read<SpeciesService>().search(value.trim());
-        if (mounted) setState(() => _searchResults = results);
+            await context.read<SpeciesService>().search(query: value.trim());
+        if (mounted) setState(() => _searchResults = results.content);
       } catch (_) {
         // Ignore transient search errors; user can keep typing/retry.
       }

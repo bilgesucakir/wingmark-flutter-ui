@@ -19,10 +19,12 @@ class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  State<MapScreen> createState() => MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+/// Public so RootTabView can auto-refresh this tab on reselect — see
+/// DiaryScreenState for why that's needed with IndexedStack.
+class MapScreenState extends State<MapScreen> {
   late Future<List<BirdLog>> _future;
   final _mapController = MapController();
 
@@ -37,13 +39,28 @@ class _MapScreenState extends State<MapScreen> {
     return context.read<BirdLogService>().getForUser(userId);
   }
 
-  void _reload() => setState(() => _future = _load());
+  void _reload() => setState(() {
+        _future = _load();
+      });
+
+  Future<void> refresh() async {
+    final future = _load();
+    setState(() {
+      _future = future;
+    });
+    await future;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: FlowingTitle(l10n.mapTitle, size: 28)),
+      appBar: AppBar(
+        title: FlowingTitle(l10n.mapTitle, size: 28),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
+        ],
+      ),
       body: FutureBuilder<List<BirdLog>>(
         future: _future,
         builder: (context, snapshot) {

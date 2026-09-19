@@ -12,41 +12,104 @@ import '../../widgets/error_retry.dart';
 import '../../widgets/flowing_title.dart';
 import 'species_detail_screen.dart';
 
-/// Species catalog browser backed by GET /api/species?search= — the Swift
-/// app's GuideView listed a small hardcoded local seed instead of the
-/// backend's real catalog.
+/// Species catalog browser backed by GET /api/species?search=&page=&size=
+/// (the backend paginates this endpoint — see SpeciesController.java) — the
+/// Swift app's GuideView listed a small hardcoded local seed instead.
 class GuideScreen extends StatefulWidget {
   const GuideScreen({super.key});
 
   @override
-  State<GuideScreen> createState() => _GuideScreenState();
+  State<GuideScreen> createState() => GuideScreenState();
 }
 
-class _GuideScreenState extends State<GuideScreen> {
+/// Public so RootTabView can auto-refresh this tab on reselect — see
+/// DiaryScreenState for why that's needed with IndexedStack.
+class GuideScreenState extends State<GuideScreen> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   Timer? _debounce;
-  late Future<List<Species>> _future;
+
+  List<Species> _items = [];
+  int _nextPage = 0;
+  bool _hasMore = true;
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  Object? _error;
 
   @override
   void initState() {
     super.initState();
-    _future = context.read<SpeciesService>().search();
+    _scrollController.addListener(_onScroll);
+    _loadFirstPage();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
+  void _onScroll() {
+    if (!_hasMore || _isLoadingMore || _isLoading) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      _loadNextPage();
+    }
+  }
+
+  Future<void> _loadFirstPage() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final page = await context
+          .read<SpeciesService>()
+          .search(query: _searchController.text.trim());
+      if (!mounted) return;
+      setState(() {
+        _items = page.content;
+        _nextPage = page.number + 1;
+        _hasMore = !page.last;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadNextPage() async {
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await context.read<SpeciesService>().search(
+            query: _searchController.text.trim(),
+            page: _nextPage,
+          );
+      if (!mounted) return;
+      setState(() {
+        _items = [..._items, ...page.content];
+        _nextPage = page.number + 1;
+        _hasMore = !page.last;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      // Leave _hasMore as-is so scrolling near the bottom again retries.
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  /// Public — called by RootTabView on tab reselect and by pull-to-refresh.
+  Future<void> refresh() => _loadFirstPage();
+
   void _onSearchChanged(String value) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      setState(() {
-        _future = context.read<SpeciesService>().search(value.trim());
-      });
-    });
+    _debounce = Timer(const Duration(milliseconds: 350), _loadFirstPage);
   }
 
   @override
@@ -68,60 +131,91 @@ class _GuideScreenState extends State<GuideScreen> {
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<Species>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(
-                      child: CircularProgressIndicator(color: AppTheme.accent));
-                }
-                if (snapshot.hasError) {
-                  return ErrorRetry(
-                    message: l10n.somethingWentWrong,
-                    onRetry: () => setState(() {
-                      _future = context
-                          .read<SpeciesService>()
-                          .search(_searchController.text.trim());
-                    }),
-                  );
-                }
-                final species = snapshot.data ?? [];
-                if (species.isEmpty) {
-                  return Center(
-                    child: Text(l10n.noSpeciesFound,
-                        style: TextStyle(color: AppTheme.textSecondary)),
-                  );
-                }
-                return ListView.separated(
-                  itemCount: species.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final s = species[index];
-                    return ListTile(
-                      title: Text(s.name(l10n.code)),
-                      subtitle: Text(
-                        s.scientificName,
-                        style: const TextStyle(fontStyle: FontStyle.italic),
-                      ),
-                      leading: s.images.isNotEmpty
-                          ? CircleAvatar(
-                              backgroundImage: CachedNetworkImageProvider(
-                                  s.images.first.imageUrl),
-                            )
-                          : const CircleAvatar(child: Icon(Icons.pets)),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => SpeciesDetailScreen(speciesId: s.id),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+            child: RefreshIndicator(
+              onRefresh: refresh,
+              color: AppTheme.accent,
+              child: _buildBody(l10n),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody(AppLocalizations l10n) {
+    if (_isLoading) {
+      return ListView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          SizedBox(height: 160),
+          Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+        ],
+      );
+    }
+    if (_error != null) {
+      return ListView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 80),
+          ErrorRetry(
+              message: l10n.somethingWentWrong, onRetry: _loadFirstPage),
+        ],
+      );
+    }
+    if (_items.isEmpty) {
+      return ListView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 160),
+          Center(
+            child: Text(l10n.noSpeciesFound,
+                style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+        ],
+      );
+    }
+    return ListView.separated(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: _items.length + (_hasMore ? 1 : 0),
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        if (index >= _items.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppTheme.accent),
+              ),
+            ),
+          );
+        }
+        final s = _items[index];
+        return ListTile(
+          title: Text(s.name(l10n.code)),
+          subtitle: Text(
+            s.scientificName,
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
+          leading: s.images.isNotEmpty
+              ? CircleAvatar(
+                  backgroundImage:
+                      CachedNetworkImageProvider(s.images.first.imageUrl),
+                )
+              : const CircleAvatar(child: Icon(Icons.pets)),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SpeciesDetailScreen(speciesId: s.id),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -11,15 +11,23 @@ class SpeciesService {
 
   final ApiClient _client;
 
-  Future<List<Species>> search([String? query]) async {
+  /// GET /api/species?search=&page=&size= — paginated (Spring Data Page
+  /// envelope) since the backend added pagination to the species guide.
+  Future<SpeciesPage> search({
+    String? query,
+    int page = 0,
+    int size = 20,
+  }) async {
     final json = await _client.get(
       '/api/species',
-      query: (query == null || query.isEmpty) ? null : {'search': query},
+      query: {
+        if (query != null && query.isNotEmpty) 'search': query,
+        'page': page.toString(),
+        'size': size.toString(),
+      },
       auth: false,
     );
-    return (json as List<dynamic>)
-        .map((e) => Species.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return SpeciesPage.fromJson(json as Map<String, dynamic>);
   }
 
   Future<Species> getById(String id) async {

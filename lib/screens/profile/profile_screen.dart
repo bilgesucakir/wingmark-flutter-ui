@@ -113,7 +113,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (snapshot.hasError) {
                 return ErrorRetry(
                   message: l10n.somethingWentWrong,
-                  onRetry: () => setState(() => _future = _load()),
+                  onRetry: () => setState(() {
+                    _future = _load();
+                  }),
                 );
               }
               final logs = snapshot.data ?? [];

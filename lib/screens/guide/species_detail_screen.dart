@@ -101,7 +101,9 @@ class _SpeciesDetailScreenState extends State<SpeciesDetailScreen> {
               appBar: AppBar(),
               body: ErrorRetry(
                 message: l10n.somethingWentWrong,
-                onRetry: () => setState(() => _future = _load()),
+                onRetry: () => setState(() {
+                  _future = _load();
+                }),
               ),
             );
           }

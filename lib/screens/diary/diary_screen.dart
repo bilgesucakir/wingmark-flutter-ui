@@ -18,10 +18,14 @@ class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
 
   @override
-  State<DiaryScreen> createState() => _DiaryScreenState();
+  State<DiaryScreen> createState() => DiaryScreenState();
 }
 
-class _DiaryScreenState extends State<DiaryScreen> {
+/// Public so RootTabView can hold a GlobalKey and call [refresh] when this
+/// tab is reselected — IndexedStack keeps this screen's state alive across
+/// tab switches, so without this it would never refetch after the first load
+/// unless the user went through the "+" add-sighting flow.
+class DiaryScreenState extends State<DiaryScreen> {
   late Future<List<BirdLog>> _future;
 
   @override
@@ -35,7 +39,17 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return context.read<BirdLogService>().getForUser(userId);
   }
 
-  void _reload() => setState(() => _future = _load());
+  void _reload() => setState(() {
+        _future = _load();
+      });
+
+  Future<void> refresh() async {
+    final future = _load();
+    setState(() {
+      _future = future;
+    });
+    await future;
+  }
 
   Future<void> _delete(BirdLog log) async {
     try {
@@ -66,61 +80,83 @@ class _DiaryScreenState extends State<DiaryScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<BirdLog>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-                child: CircularProgressIndicator(color: AppTheme.accent));
-          }
-          if (snapshot.hasError) {
-            return ErrorRetry(
-                message: l10n.somethingWentWrong, onRetry: _reload);
-          }
-          final logs = snapshot.data ?? [];
-          if (logs.isEmpty) {
-            return Center(
-              child: Text(l10n.diaryEmpty,
-                  style: TextStyle(color: AppTheme.textSecondary)),
-            );
-          }
-          return ListView.separated(
-            itemCount: logs.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final log = logs[index];
-              return Dismissible(
-                key: ValueKey(log.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  color: Colors.redAccent.withValues(alpha: 0.7),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                onDismissed: (_) => _delete(log),
-                child: ListTile(
-                  leading: log.photoUrl != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: CachedNetworkImage(
-                            imageUrl: resolveMediaUrl(log.photoUrl!),
-                            width: 48,
-                            height: 48,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : const CircleAvatar(
-                          backgroundColor: AppTheme.backgroundElevated,
-                          child: Icon(Icons.pets, color: AppTheme.accent),
-                        ),
-                  title: Text(log.displayName(l10n.code)),
-                  subtitle: Text(_formatDate(log.observedAt)),
-                ),
+      body: RefreshIndicator(
+        onRefresh: refresh,
+        color: AppTheme.accent,
+        child: FutureBuilder<List<BirdLog>>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 160),
+                  Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+                ],
               );
-            },
-          );
-        },
+            }
+            if (snapshot.hasError) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 80),
+                  ErrorRetry(
+                      message: l10n.somethingWentWrong, onRetry: _reload),
+                ],
+              );
+            }
+            final logs = snapshot.data ?? [];
+            if (logs.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 160),
+                  Center(
+                    child: Text(l10n.diaryEmpty,
+                        style: TextStyle(color: AppTheme.textSecondary)),
+                  ),
+                ],
+              );
+            }
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: logs.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final log = logs[index];
+                return Dismissible(
+                  key: ValueKey(log.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    color: Colors.redAccent.withValues(alpha: 0.7),
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  onDismissed: (_) => _delete(log),
+                  child: ListTile(
+                    leading: log.photoUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CachedNetworkImage(
+                              imageUrl: resolveMediaUrl(log.photoUrl!),
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : const CircleAvatar(
+                            backgroundColor: AppTheme.backgroundElevated,
+                            child: Icon(Icons.pets, color: AppTheme.accent),
+                          ),
+                    title: Text(log.displayName(l10n.code)),
+                    subtitle: Text(_formatDate(log.observedAt)),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
