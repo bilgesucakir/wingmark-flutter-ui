@@ -19,10 +19,12 @@ class GuideScreen extends StatefulWidget {
   const GuideScreen({super.key});
 
   @override
-  State<GuideScreen> createState() => _GuideScreenState();
+  State<GuideScreen> createState() => GuideScreenState();
 }
 
-class _GuideScreenState extends State<GuideScreen> {
+/// Public so RootTabView can auto-refresh this tab on reselect — see
+/// DiaryScreenState for why that's needed with IndexedStack.
+class GuideScreenState extends State<GuideScreen> {
   final _searchController = TextEditingController();
   Timer? _debounce;
   late Future<List<Species>> _future;
@@ -31,6 +33,13 @@ class _GuideScreenState extends State<GuideScreen> {
   void initState() {
     super.initState();
     _future = context.read<SpeciesService>().search();
+  }
+
+  Future<void> refresh() async {
+    final future =
+        context.read<SpeciesService>().search(_searchController.text.trim());
+    setState(() => _future = future);
+    await future;
   }
 
   @override
@@ -68,56 +77,81 @@ class _GuideScreenState extends State<GuideScreen> {
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<Species>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(
-                      child: CircularProgressIndicator(color: AppTheme.accent));
-                }
-                if (snapshot.hasError) {
-                  return ErrorRetry(
-                    message: l10n.somethingWentWrong,
-                    onRetry: () => setState(() {
-                      _future = context
-                          .read<SpeciesService>()
-                          .search(_searchController.text.trim());
-                    }),
-                  );
-                }
-                final species = snapshot.data ?? [];
-                if (species.isEmpty) {
-                  return Center(
-                    child: Text(l10n.noSpeciesFound,
-                        style: TextStyle(color: AppTheme.textSecondary)),
-                  );
-                }
-                return ListView.separated(
-                  itemCount: species.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final s = species[index];
-                    return ListTile(
-                      title: Text(s.name(l10n.code)),
-                      subtitle: Text(
-                        s.scientificName,
-                        style: const TextStyle(fontStyle: FontStyle.italic),
-                      ),
-                      leading: s.images.isNotEmpty
-                          ? CircleAvatar(
-                              backgroundImage: CachedNetworkImageProvider(
-                                  s.images.first.imageUrl),
-                            )
-                          : const CircleAvatar(child: Icon(Icons.pets)),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => SpeciesDetailScreen(speciesId: s.id),
-                        ),
-                      ),
+            child: RefreshIndicator(
+              onRefresh: refresh,
+              color: AppTheme.accent,
+              child: FutureBuilder<List<Species>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 160),
+                        Center(
+                            child: CircularProgressIndicator(
+                                color: AppTheme.accent)),
+                      ],
                     );
-                  },
-                );
-              },
+                  }
+                  if (snapshot.hasError) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 80),
+                        ErrorRetry(
+                          message: l10n.somethingWentWrong,
+                          onRetry: () => setState(() {
+                            _future = context
+                                .read<SpeciesService>()
+                                .search(_searchController.text.trim());
+                          }),
+                        ),
+                      ],
+                    );
+                  }
+                  final species = snapshot.data ?? [];
+                  if (species.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 160),
+                        Center(
+                          child: Text(l10n.noSpeciesFound,
+                              style: TextStyle(color: AppTheme.textSecondary)),
+                        ),
+                      ],
+                    );
+                  }
+                  return ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: species.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final s = species[index];
+                      return ListTile(
+                        title: Text(s.name(l10n.code)),
+                        subtitle: Text(
+                          s.scientificName,
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                        ),
+                        leading: s.images.isNotEmpty
+                            ? CircleAvatar(
+                                backgroundImage: CachedNetworkImageProvider(
+                                    s.images.first.imageUrl),
+                              )
+                            : const CircleAvatar(child: Icon(Icons.pets)),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                SpeciesDetailScreen(speciesId: s.id),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ],

@@ -19,13 +19,35 @@ class RootTabView extends StatefulWidget {
 class _RootTabViewState extends State<RootTabView> {
   int _index = 0;
 
-  static const _screens = [
-    MapScreen(),
-    GuideScreen(),
-    DiaryScreen(),
-    BadgesScreen(),
-    ProfileScreen(),
+  final _mapKey = GlobalKey<MapScreenState>();
+  final _guideKey = GlobalKey<GuideScreenState>();
+  final _diaryKey = GlobalKey<DiaryScreenState>();
+  final _badgesKey = GlobalKey<BadgesScreenState>();
+
+  late final _screens = [
+    MapScreen(key: _mapKey),
+    GuideScreen(key: _guideKey),
+    DiaryScreen(key: _diaryKey),
+    BadgesScreen(key: _badgesKey),
+    const ProfileScreen(),
   ];
+
+  void _onDestinationSelected(int i) {
+    setState(() => _index = i);
+    // IndexedStack keeps every tab's State alive, so switching back to one
+    // never refetches on its own — force a refresh of whichever data-driven
+    // tab was just selected.
+    switch (i) {
+      case 0:
+        _mapKey.currentState?.refresh();
+      case 1:
+        _guideKey.currentState?.refresh();
+      case 2:
+        _diaryKey.currentState?.refresh();
+      case 3:
+        _badgesKey.currentState?.refresh();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +56,7 @@ class _RootTabViewState extends State<RootTabView> {
       body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _onDestinationSelected,
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.map_outlined),

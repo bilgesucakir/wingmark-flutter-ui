@@ -18,10 +18,12 @@ class BadgesScreen extends StatefulWidget {
   const BadgesScreen({super.key});
 
   @override
-  State<BadgesScreen> createState() => _BadgesScreenState();
+  State<BadgesScreen> createState() => BadgesScreenState();
 }
 
-class _BadgesScreenState extends State<BadgesScreen> {
+/// Public so RootTabView can auto-refresh this tab on reselect — see
+/// DiaryScreenState for why that's needed with IndexedStack.
+class BadgesScreenState extends State<BadgesScreen> {
   late Future<_BadgesData> _future;
 
   @override
@@ -45,24 +47,44 @@ class _BadgesScreenState extends State<BadgesScreen> {
 
   void _reload() => setState(() => _future = _load());
 
+  Future<void> refresh() async {
+    final future = _load();
+    setState(() => _future = future);
+    await future;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: FlowingTitle(l10n.badgesTitle, size: 28)),
-      body: FutureBuilder<_BadgesData>(
-        future: _future,
-        builder: (context, snapshot) {
+      body: RefreshIndicator(
+        onRefresh: refresh,
+        color: AppTheme.accent,
+        child: FutureBuilder<_BadgesData>(
+          future: _future,
+          builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-                child: CircularProgressIndicator(color: AppTheme.accent));
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 160),
+                Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+              ],
+            );
           }
           if (snapshot.hasError) {
-            return ErrorRetry(
-                message: l10n.somethingWentWrong, onRetry: _reload);
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 80),
+                ErrorRetry(message: l10n.somethingWentWrong, onRetry: _reload),
+              ],
+            );
           }
           final data = snapshot.data!;
           return GridView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 130,
@@ -117,7 +139,8 @@ class _BadgesScreenState extends State<BadgesScreen> {
               );
             },
           );
-        },
+          },
+        ),
       ),
     );
   }
