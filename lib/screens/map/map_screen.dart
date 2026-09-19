@@ -39,11 +39,15 @@ class MapScreenState extends State<MapScreen> {
     return context.read<BirdLogService>().getForUser(userId);
   }
 
-  void _reload() => setState(() => _future = _load());
+  void _reload() => setState(() {
+        _future = _load();
+      });
 
   Future<void> refresh() async {
     final future = _load();
-    setState(() => _future = future);
+    setState(() {
+      _future = future;
+    });
     await future;
   }
 
