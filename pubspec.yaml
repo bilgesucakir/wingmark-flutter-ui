@@ -1,0 +1,57 @@
+name: wingmark_flutter
+description: "Wingmark — log the birds you have seen, anywhere on a map."
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Networking / backend integration
+  http: ^1.2.2
+
+  # State management
+  provider: ^6.1.2
+
+  # Auth token persistence + JWT decoding
+  flutter_secure_storage: ^9.2.2
+  jwt_decoder: ^2.0.1
+
+  # Local prefs (language / unit preference cache, mirrors AppStorage on iOS)
+  shared_preferences: ^2.3.2
+
+  # Location capture for bird logs + map display
+  geolocator: ^13.0.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Photos for sightings
+  image_picker: ^1.1.2
+  cached_network_image: ^3.4.1
+
+  # Species sound recordings (Xeno-canto proxy)
+  just_audio: ^0.9.40
+
+  # Date/number formatting
+  intl: ^0.19.0
+
+  # Flowing script titles (stand-in for Theme.swift's SnellRoundhand)
+  google_fonts: ^6.2.1
+
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
