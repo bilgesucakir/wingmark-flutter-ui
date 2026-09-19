@@ -93,7 +93,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 key: ValueKey(log.id),
                 direction: DismissDirection.endToStart,
                 background: Container(
-                  color: Colors.redAccent.withOpacity(0.7),
+                  color: Colors.redAccent.withValues(alpha: 0.7),
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: const Icon(Icons.delete, color: Colors.white),
@@ -110,9 +110,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
                             fit: BoxFit.cover,
                           ),
                         )
-                      : CircleAvatar(
+                      : const CircleAvatar(
                           backgroundColor: AppTheme.backgroundElevated,
-                          child: const Icon(Icons.pets, color: AppTheme.accent),
+                          child: Icon(Icons.pets, color: AppTheme.accent),
                         ),
                   title: Text(log.displayName(l10n.code)),
                   subtitle: Text(_formatDate(log.observedAt)),

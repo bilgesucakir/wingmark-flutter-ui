@@ -1,6 +1,7 @@
 /// Enums mirroring the backend's Java enums (see wingmark-backend
 /// src/main/java/com/wingmark/backend/enums/*.java) so wire values match
 /// exactly.
+library;
 
 enum Role {
   user('USER'),

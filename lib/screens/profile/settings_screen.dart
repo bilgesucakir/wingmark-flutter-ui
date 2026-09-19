@@ -46,13 +46,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _updateUnitPreference(UnitPreference value) async {
     final controller = context.read<SettingsController>();
+    final userId = context.read<AuthSession>().currentUser!.id;
+    final userService = context.read<UserService>();
     await controller.setUnitPreference(value);
     try {
-      final userId = context.read<AuthSession>().currentUser!.id;
-      await context.read<UserService>().updateSettings(
-            userId,
-            UserSettings(unitPreference: value),
-          );
+      await userService.updateSettings(
+        userId,
+        UserSettings(unitPreference: value),
+      );
     } catch (_) {
       // Local preference already applied; backend sync will retry next visit.
     }
@@ -69,16 +70,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           SectionHeader(l10n.language),
-          for (final lang in AppLanguage.values)
-            RadioListTile<AppLanguage>(
-              contentPadding: EdgeInsets.zero,
-              title: Text(lang.label(l10n.code)),
-              value: lang,
-              groupValue: settings.language,
-              onChanged: (value) {
-                if (value != null) settings.setLanguage(value);
-              },
+          RadioGroup<AppLanguage>(
+            groupValue: settings.language,
+            onChanged: (value) {
+              if (value != null) settings.setLanguage(value);
+            },
+            child: Column(
+              children: [
+                for (final lang in AppLanguage.values)
+                  RadioListTile<AppLanguage>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(lang.label(l10n.code)),
+                    value: lang,
+                  ),
+              ],
             ),
+          ),
           Text(l10n.languageFooter,
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           SectionHeader(l10n.units),
@@ -87,16 +94,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: EdgeInsets.symmetric(vertical: 8),
               child: LinearProgressIndicator(color: AppTheme.accent),
             ),
-          for (final unit in UnitPreference.values)
-            RadioListTile<UnitPreference>(
-              contentPadding: EdgeInsets.zero,
-              title: Text(unit.label(l10n.code)),
-              value: unit,
-              groupValue: settings.unitPreference,
-              onChanged: (value) {
-                if (value != null) _updateUnitPreference(value);
-              },
+          RadioGroup<UnitPreference>(
+            groupValue: settings.unitPreference,
+            onChanged: (value) {
+              if (value != null) _updateUnitPreference(value);
+            },
+            child: Column(
+              children: [
+                for (final unit in UnitPreference.values)
+                  RadioListTile<UnitPreference>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(unit.label(l10n.code)),
+                    value: unit,
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );

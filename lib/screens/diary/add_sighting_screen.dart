@@ -154,11 +154,15 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
       _error = null;
     });
 
+    // Read providers before the first await — using `context` for anything
+    // context-dependent after an await needs a `mounted` guard instead.
+    final uploadService = context.read<UploadService>();
+    final birdLogService = context.read<BirdLogService>();
+
     try {
       String? photoUrl;
       if (_photo != null) {
-        photoUrl =
-            await context.read<UploadService>().uploadPhoto(_photo!.path);
+        photoUrl = await uploadService.uploadPhoto(_photo!.path);
       }
 
       final request = BirdLogRequest(
@@ -182,7 +186,7 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
             : _locationNameController.text.trim(),
       );
 
-      await context.read<BirdLogService>().create(request);
+      await birdLogService.create(request);
       if (mounted) Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       setState(() {

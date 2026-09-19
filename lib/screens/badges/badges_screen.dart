@@ -76,7 +76,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
               final tier = data.tierByBadgeId[badge.badgeId];
               final color = badge.earned
                   ? (tier != null ? AppTheme.tierColor(tier.value) : AppTheme.accent)
-                  : AppTheme.textSecondary.withOpacity(0.5);
+                  : AppTheme.textSecondary.withValues(alpha: 0.5);
               return Container(
                 decoration: BoxDecoration(
                   color: AppTheme.backgroundElevated,

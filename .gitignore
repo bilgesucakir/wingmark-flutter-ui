@@ -9,14 +9,6 @@
 /build/
 migrate_working_dir/
 
-# Generated platform folders (created later via `flutter create .`)
-/android/
-/ios/
-/linux/
-/macos/
-/windows/
-/web/
-
 # IntelliJ related
 *.iml
 *.ipr

@@ -11,7 +11,7 @@ class AppTheme {
   static const Color backgroundElevated = Color.fromRGBO(46, 43, 61, 1);
   static const Color accent = Color.fromRGBO(199, 173, 217, 1);
   static const Color textPrimary = Color.fromRGBO(237, 232, 245, 1);
-  static Color get textSecondary => textPrimary.withOpacity(0.6);
+  static Color get textSecondary => textPrimary.withValues(alpha: 0.6);
 
   static const Color bronze = Color(0xFFCD7F32);
   static const Color silver = Color(0xFFC0C0C0);
@@ -48,7 +48,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: backgroundElevated,
-        indicatorColor: accent.withOpacity(0.25),
+        indicatorColor: accent.withValues(alpha: 0.25),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
@@ -99,7 +99,7 @@ class AppTheme {
       listTileTheme: const ListTileThemeData(
         tileColor: Colors.transparent,
       ),
-      dividerColor: textPrimary.withOpacity(0.08),
+      dividerColor: textPrimary.withValues(alpha: 0.08),
     );
   }
 

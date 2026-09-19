@@ -41,7 +41,7 @@ dependencies:
   just_audio: ^0.9.40
 
   # Date/number formatting
-  intl: ^0.19.0
+  intl: ^0.20.3
 
   # Flowing script titles (stand-in for Theme.swift's SnellRoundhand)
   google_fonts: ^6.2.1

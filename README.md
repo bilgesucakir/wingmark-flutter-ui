@@ -5,43 +5,38 @@ seen, anywhere on a map — talking to the same deployed backend
 ([wingmark-backend](../wingmark-backend), live at
 `https://wingmark-backend.onrender.com`).
 
-This was scaffolded on a machine with **no Flutter SDK installed**, so only
-`pubspec.yaml` + `lib/` exist so far — no `android/`, `ios/`, `web/`, etc.
-Do this once Flutter is available (e.g. on your other Mac):
+This was originally scaffolded with no Flutter SDK available, then finished
+once Flutter (3.47.5, stable) was set up on this machine: `flutter create .`
+generated the platform folders (`android/`, `ios/`, `linux/`, `macos/`,
+`windows/`, `web/`), `flutter pub get` resolved packages, and the
+location/photo permissions below are already applied.
 
-## First-time setup
+## Running it
 
 ```bash
-# 1. Generate the missing platform folders in place (safe — it won't touch
-#    the existing lib/ or pubspec.yaml, only adds android/ios/etc.)
-flutter create .
-
-# 2. Fetch packages
-flutter pub get
-
-# 3. Run it
-flutter run
+flutter pub get   # only needed if pubspec.yaml changed since last run
+flutter run       # pick a device — Chrome and Windows desktop both work
+                   # out of the box here; Android needs Android Studio's SDK,
+                   # iOS/macOS need Xcode (e.g. on your Mac)
 ```
 
-## Required platform permissions (add after step 1 above)
+`flutter analyze` and `flutter test` both pass as of this scaffold (only a
+handful of lint-level `info` notices, no errors).
+
+## Platform permissions (already applied)
 
 The app captures GPS location for sightings (`geolocator`) and picks photos
 from the gallery (`image_picker`):
 
-**Android** — `android/app/src/main/AndroidManifest.xml`, inside `<manifest>`:
-```xml
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-```
-(`INTERNET` is already included by the default Flutter template.)
+- **Android** (`android/app/src/main/AndroidManifest.xml`):
+  `ACCESS_FINE_LOCATION` + `ACCESS_COARSE_LOCATION`. `INTERNET` is already
+  included by the default Flutter template.
+- **iOS** (`ios/Runner/Info.plist`): `NSLocationWhenInUseUsageDescription` +
+  `NSPhotoLibraryUsageDescription`.
 
-**iOS** — `ios/Runner/Info.plist`:
-```xml
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>wingmark uses your location to log where you saw a bird.</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>wingmark needs photo access to attach a picture to a sighting.</string>
-```
+macOS/Linux/Windows desktop targets don't need these for the fields this app
+currently uses, but macOS will additionally need a location entitlement in
+`macos/Runner/*.entitlements` if you build for it later.
 
 ## Architecture notes
 
