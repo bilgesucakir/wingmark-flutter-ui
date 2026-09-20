@@ -3,13 +3,83 @@
 Flutter port of the [wingmark](../wingmark) SwiftUI app — log the birds you've
 seen, anywhere on a map — talking to the same deployed backend
 ([wingmark-backend](../wingmark-backend), live at
-`https://wingmark-backend.onrender.com`).
+`https://wingmark-backend.onrender.com`). Unlike the Swift app, which only
+ever wired up auth against the backend and kept sightings/species/badges in
+local mocks, this client is fully backend-integrated end to end.
 
-This was originally scaffolded with no Flutter SDK available, then finished
-once Flutter (3.47.5, stable) was set up on this machine: `flutter create .`
-generated the platform folders (`android/`, `ios/`, `linux/`, `macos/`,
-`windows/`, `web/`), `flutter pub get` resolved packages, and the
-location/photo permissions below are already applied.
+## Features
+
+### Authentication
+- Log in / Sign up
+- Handles the backend's "login blocked until email verified" behavior: after
+  registering, or if a login is rejected for an unverified account, the app
+  shows a dedicated verify-your-email screen with a resend action
+- JWT access/refresh tokens persisted in secure storage, with transparent
+  refresh-and-retry on an expired access token — no user-visible re-login
+- Log out (revokes the refresh token on the backend)
+
+### Map
+- Interactive map (OpenStreetMap tiles) plotting every one of the user's
+  sightings
+- Each pin shows that sighting's own photo, or a bundled bird-silhouette
+  placeholder if none was attached
+- Tapping a pin first focuses/centers the map on it, then opens a summary
+  sheet (photo, name, date, location)
+- Tapping the photo in that sheet opens the sighting's full detail screen
+- Manual refresh button, plus auto-refresh whenever you switch back to this
+  tab
+
+### Guide (species catalog)
+- Live search-as-you-type against the backend's species catalog
+- Infinite scroll — loads the next page automatically as you near the bottom
+  of the list
+- Tapping a species opens a detail screen: photo carousel, localized
+  description/habitat/diet/lifespan/size/conservation status/native range,
+  and playable Xeno-canto sound recordings with license attribution
+- Pull-to-refresh, plus auto-refresh on tab reselect
+
+### Diary (sighting log)
+- Chronological list of every sighting the user has logged, with
+  swipe-to-delete
+- Tapping a sighting opens its full detail (photo, species or custom name,
+  date, location + a small map, life stage, gender, pet flag, notes) with an
+  Edit action
+- Logging a new sighting captures: date/time, GPS location (auto-captured,
+  adjustable by tapping the map, or re-fetched on demand), species — searched
+  and selected from the live catalog, with a "guess" vs. "confident"
+  indicator, or an "I don't know" toggle for unidentified birds — life stage,
+  gender, a pet flag, an optional custom name, a photo (picked from the
+  gallery, previewable and removable), and free-text notes
+- Editing reopens the same form pre-filled (including the existing photo) and
+  saves via update instead of create
+- Pull-to-refresh, plus auto-refresh on tab reselect
+
+### Badges
+- Full badge catalog with real per-user progress from the backend (earned vs.
+  locked, current/target counts), tier-colored icons (bronze/silver/gold)
+- Pull-to-refresh, plus auto-refresh on tab reselect
+
+### Profile
+- Name, username, email, join date, total sightings, distinct species logged,
+  and favorite species (shown in whichever language is selected)
+- Edit profile: first/last name and a favorite-species picker (searches the
+  live catalog)
+- Settings: language (System / English / Türkçe) and units (metric /
+  imperial). Both are persisted to the backend together, so changing one
+  never silently clears the other. Changing language updates the app's
+  outgoing `Accept-Language` header immediately and refreshes the cached
+  profile, so backend-resolved text (species names, favorite species, badge
+  names) catches up right away instead of on the next unrelated request
+- Log out
+
+### Cross-cutting
+- Full English/Turkish localization for all static UI text; backend-resolved
+  text (species/badge/favorite-species names) follows the same language via
+  `Accept-Language`
+- Pastel-dark theme with flowing script titles — a visual port of the Swift
+  app's `Theme.swift`
+- Handles Render's cold starts gracefully (90s request timeout, matching the
+  Swift client's own tuning)
 
 ## Running it
 
@@ -20,8 +90,19 @@ flutter run       # pick a device — Chrome and Windows desktop both work
                    # iOS/macOS need Xcode (e.g. on your Mac)
 ```
 
-`flutter analyze` and `flutter test` both pass as of this scaffold (only a
-handful of lint-level `info` notices, no errors).
+`flutter analyze` and `flutter test` both pass clean.
+
+## Testing
+
+```bash
+flutter test
+```
+
+142 unit tests: JSON parsing and business logic for every model, `ApiClient`
+(header injection, error mapping, the 401 refresh-and-retry flow, multipart
+upload), `TokenStore` (persistence, refresh rotation), every service's
+request/response shape, and `AuthSession`'s full state machine
+(bootstrap/login/register/resend/logout/refreshProfile). See `test/`.
 
 ## Platform permissions (already applied)
 
@@ -40,11 +121,6 @@ currently uses, but macOS will additionally need a location entitlement in
 
 ## Architecture notes
 
-- **Backend integration is real**, not mocked — unlike the current Swift app
-  (which only wires up `/api/auth/*` and `/api/users/{id}`, keeping bird
-  sightings/species/badges in local SwiftData/hardcoded mocks). This Flutter
-  client calls the full REST surface: `/api/bird-logs`, `/api/species`,
-  `/api/badges`, `/api/uploads/photo`.
 - **Auth**: JWT access/refresh pair persisted in `flutter_secure_storage`
   (`lib/core/token_store.dart`). `ApiClient` (`lib/core/api_client.dart`)
   transparently refreshes and retries once on a 401. Because
@@ -52,21 +128,18 @@ currently uses, but macOS will additionally need a location entitlement in
   access token's `sub` claim (`jwt_decoder`), then `GET /api/users/{sub}`
   fetches the full profile — same pattern the Swift `BackendAuthService`
   uses.
-- **Backend cold starts**: Render's starter plan sleeps the instance; the
-  first request after idle can take up to ~60-90s. `ApiClient` uses a 90s
-  timeout to match the Swift app's `URLSessionConfiguration` setting.
-- **Localization**: hand-written (`lib/core/app_localizations.dart`),
-  English/Turkish, no `flutter gen-l10n` step (that requires the Flutter
-  tool, unavailable when this was scaffolded). Mirrors the Swift app's
-  `AppLanguage` (System/English/Türkçe), persisted via `shared_preferences`.
-- **Units**: unlike the Swift app (local-only `AppStorage`), unit preference
-  here syncs with the backend via `GET`/`PUT /api/users/{id}/settings`.
-- **Gaps intentionally filled in vs. the Swift app**: the original
-  `AddSightingView` had no photo picker, no gender field, and no lat/lng
-  capture at all — despite the backend *requiring* lat/lng on every bird log
-  and already having a full photo-upload pipeline. This port adds all three
-  (GPS auto-capture + tap-to-adjust map, gender picker, photo upload via
-  `POST /api/uploads/photo`).
-- Species/badge display text comes back from the backend as locale maps
-  (e.g. `{"en": "...", "tr": "..."}`) — see `localizedText()` in
-  `lib/models/species.dart`.
+- **Localization**: hand-written (`lib/core/app_localizations.dart`), no
+  `flutter gen-l10n` step. Mirrors the Swift app's `AppLanguage`
+  (System/English/Türkçe), persisted via `shared_preferences`, and also
+  drives the backend `Accept-Language` header via `ApiClient.languageCode`
+  (kept in sync in `app.dart` and updated immediately on a Settings change).
+- **Pagination**: `GET /api/species` returns a versioned envelope —
+  `{content: [...], page: {totalElements, totalPages, number, size}}` — see
+  `SpeciesPage` in `lib/models/species.dart`.
+- Species/badge/favorite-species display text comes back from the backend
+  already locale-resolved (or, for species/badge catalog entries, as locale
+  maps like `{"en": "...", "tr": "..."}` — see `localizedText()` in
+  `lib/models/species.dart`).
+- **Tab refresh**: `RootTabView` keeps every tab's `State` alive via
+  `IndexedStack`, so each data-driven tab (Map/Guide/Diary/Badges) exposes a
+  public `refresh()` the tab bar calls on reselect, plus pull-to-refresh.
