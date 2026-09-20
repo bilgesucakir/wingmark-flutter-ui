@@ -9,10 +9,12 @@ import 'constants.dart';
 /// against POST /api/auth/refresh (single-use refresh tokens — the backend
 /// revokes the old one on every refresh).
 class TokenStore {
-  TokenStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+  TokenStore({FlutterSecureStorage? storage, http.Client? client})
+      : _storage = storage ?? const FlutterSecureStorage(),
+        _client = client ?? http.Client();
 
   final FlutterSecureStorage _storage;
+  final http.Client _client;
 
   static const _accessKey = 'wingmark.accessToken';
   static const _refreshKey = 'wingmark.refreshToken';
@@ -52,7 +54,7 @@ class TokenStore {
     final currentRefresh = _refreshToken;
     if (currentRefresh == null) return false;
     try {
-      final response = await http
+      final response = await _client
           .post(
             Uri.parse('$kApiBaseUrl/api/auth/refresh'),
             headers: {'Content-Type': 'application/json'},

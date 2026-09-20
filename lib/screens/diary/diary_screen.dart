@@ -11,6 +11,7 @@ import '../../state/auth_session.dart';
 import '../../widgets/error_retry.dart';
 import '../../widgets/flowing_title.dart';
 import 'add_sighting_screen.dart';
+import 'bird_log_detail_screen.dart';
 
 /// The "Diary" tab — mirrors Swift's ContentView, but reads/writes the real
 /// backend (GET/POST/DELETE /api/bird-logs) instead of local SwiftData.
@@ -61,10 +62,17 @@ class DiaryScreenState extends State<DiaryScreen> {
   }
 
   Future<void> _openAddSighting() async {
-    final created = await Navigator.of(context).push<bool>(
+    final created = await Navigator.of(context).push<BirdLog>(
       MaterialPageRoute(builder: (_) => const AddSightingScreen()),
     );
-    if (created == true) _reload();
+    if (created != null) _reload();
+  }
+
+  Future<void> _openDetail(BirdLog log) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => BirdLogDetailScreen(log: log)),
+    );
+    if (changed == true) _reload();
   }
 
   @override
@@ -135,6 +143,7 @@ class DiaryScreenState extends State<DiaryScreen> {
                   ),
                   onDismissed: (_) => _delete(log),
                   child: ListTile(
+                    onTap: () => _openDetail(log),
                     leading: log.photoUrl != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(8),

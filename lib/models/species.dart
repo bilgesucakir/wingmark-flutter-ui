@@ -67,32 +67,34 @@ class Species {
   }
 }
 
-/// Mirrors Spring Data's default Page<T> JSON envelope, returned by
-/// GET /api/species since it was paginated (?page=/?size=/?sort=).
+/// Mirrors the backend's versioned pagination envelope for GET /api/species:
+/// {content: [...], page: {totalElements, totalPages, number, size}} —
+/// replaced Spring's raw internal Page JSON (which had these fields at the
+/// root, plus a `last` flag this version dropped; use [isLastPage] instead).
 class SpeciesPage {
   final List<Species> content;
   final int number; // current page, 0-indexed
   final int totalPages;
   final int totalElements;
-  final bool last;
 
   SpeciesPage({
     required this.content,
     required this.number,
     required this.totalPages,
     required this.totalElements,
-    required this.last,
   });
 
+  bool get isLastPage => number + 1 >= totalPages;
+
   factory SpeciesPage.fromJson(Map<String, dynamic> json) {
+    final page = json['page'] as Map<String, dynamic>? ?? const {};
     return SpeciesPage(
       content: (json['content'] as List<dynamic>? ?? [])
           .map((e) => Species.fromJson(e as Map<String, dynamic>))
           .toList(),
-      number: (json['number'] as num?)?.toInt() ?? 0,
-      totalPages: (json['totalPages'] as num?)?.toInt() ?? 1,
-      totalElements: (json['totalElements'] as num?)?.toInt() ?? 0,
-      last: json['last'] as bool? ?? true,
+      number: (page['number'] as num?)?.toInt() ?? 0,
+      totalPages: (page['totalPages'] as num?)?.toInt() ?? 1,
+      totalElements: (page['totalElements'] as num?)?.toInt() ?? 0,
     );
   }
 }

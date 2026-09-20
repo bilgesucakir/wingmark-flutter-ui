@@ -46,6 +46,10 @@ class WingmarkApp extends StatelessWidget {
       ],
       child: Consumer<SettingsController>(
         builder: (context, settings, _) {
+          // Keeps the backend's Accept-Language header (used to resolve
+          // species/badge/favorite-species text) in sync with the app's
+          // effective language.
+          context.read<ApiClient>().languageCode = settings.effectiveLanguageCode;
           return MaterialApp(
             title: 'wingmark',
             debugShowCheckedModeBanner: false,

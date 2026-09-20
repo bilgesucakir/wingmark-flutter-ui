@@ -19,9 +19,13 @@ enum AuthStatus { unknown, unauthenticated, needsVerification, authenticated }
 /// (unverified, client-side-only) JWT `sub` claim, then GET /api/users/{sub}
 /// fetches the full profile.
 class AuthSession extends ChangeNotifier {
-  AuthSession({required this.tokenStore, required ApiClient apiClient})
-      : authService = AuthService(apiClient),
-        userService = UserService(apiClient);
+  AuthSession({
+    required this.tokenStore,
+    required ApiClient apiClient,
+    AuthService? authService,
+    UserService? userService,
+  })  : authService = authService ?? AuthService(apiClient),
+        userService = userService ?? UserService(apiClient);
 
   final TokenStore tokenStore;
   final AuthService authService;

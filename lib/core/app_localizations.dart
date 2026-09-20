@@ -76,6 +76,7 @@ class AppLocalizations {
 
   // Add sighting
   String get addSightingTitle => _t('New Sighting', 'Yeni Gözlem');
+  String get editSightingTitle => _t('Edit Sighting', 'Gözlemi Düzenle');
   String get sectionWhenWhere => _t('When & Where', 'Ne Zaman & Nerede');
   String get date => _t('Date', 'Tarih');
   String get locationName => _t('Location name', 'Konum adı');
@@ -111,6 +112,12 @@ class AppLocalizations {
   String joined(String date) => _t('Joined $date', '$date tarihinde katıldı');
   String get sightingsCount => _t('Sightings', 'Gözlemler');
   String get speciesCount => _t('Species', 'Türler');
+  String get editProfileTitle => _t('Edit Profile', 'Profili Düzenle');
+  String get favoriteSpecies => _t('Favorite species', 'Favori tür');
+  String get noFavoriteSpecies =>
+      _t('No favorite species set', 'Favori tür seçilmedi');
+  String get chooseFavoriteSpecies =>
+      _t('Choose favorite species', 'Favori tür seç');
 
   // Settings
   String get settingsTitle => _t('Settings', 'Ayarlar');

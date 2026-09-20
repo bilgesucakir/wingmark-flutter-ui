@@ -72,7 +72,7 @@ class GuideScreenState extends State<GuideScreen> {
       setState(() {
         _items = page.content;
         _nextPage = page.number + 1;
-        _hasMore = !page.last;
+        _hasMore = !page.isLastPage;
         _isLoading = false;
       });
     } catch (e) {
@@ -95,7 +95,7 @@ class GuideScreenState extends State<GuideScreen> {
       setState(() {
         _items = [..._items, ...page.content];
         _nextPage = page.number + 1;
-        _hasMore = !page.last;
+        _hasMore = !page.isLastPage;
         _isLoadingMore = false;
       });
     } catch (_) {
