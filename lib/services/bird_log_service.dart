@@ -1,5 +1,15 @@
 import '../core/api_client.dart';
 import '../models/bird_log.dart';
+import '../models/enums.dart';
+
+/// Ascending/descending sort on a bird log's observedAt date.
+enum SortDirection {
+  ascending('ASC'),
+  descending('DESC');
+
+  final String value;
+  const SortDirection(this.value);
+}
 
 /// Wraps /api/bird-logs (see BirdLogController.java) — the user's diary.
 class BirdLogService {
@@ -7,8 +17,22 @@ class BirdLogService {
 
   final ApiClient _client;
 
-  Future<List<BirdLog>> getForUser(String userId) async {
-    final json = await _client.get('/api/bird-logs/user/$userId');
+  /// All filters are optional and combinable. Note the backend requires
+  /// exact-case enum values (e.g. "MALE", not "male") — Gender/LifeStage's
+  /// own `.value` already produces that, so this is safe by construction.
+  Future<List<BirdLog>> getForUser(
+    String userId, {
+    SortDirection? sortDirection,
+    bool? hasSpecies,
+    Gender? gender,
+    LifeStage? lifeStage,
+  }) async {
+    final json = await _client.get('/api/bird-logs/user/$userId', query: {
+      if (sortDirection != null) 'sortDirection': sortDirection.value,
+      if (hasSpecies != null) 'hasSpecies': hasSpecies.toString(),
+      if (gender != null) 'gender': gender.value,
+      if (lifeStage != null) 'lifeStage': lifeStage.value,
+    });
     return (json as List<dynamic>)
         .map((e) => BirdLog.fromJson(e as Map<String, dynamic>))
         .toList();

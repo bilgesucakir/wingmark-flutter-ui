@@ -67,12 +67,31 @@ class AppLocalizations {
   String get soundsTitle => _t('Sounds', 'Sesler');
   String get noSounds =>
       _t('No recordings available', 'Kayıt bulunamadı');
+  String get sortTooltip => _t('Sort', 'Sırala');
+  String get sortCommonNameAsc =>
+      _t('Common name (A–Z)', 'Yaygın isim (A–Z)');
+  String get sortCommonNameDesc =>
+      _t('Common name (Z–A)', 'Yaygın isim (Z–A)');
+  String get sortScientificNameAsc =>
+      _t('Scientific name (A–Z)', 'Bilimsel isim (A–Z)');
+  String get sortScientificNameDesc =>
+      _t('Scientific name (Z–A)', 'Bilimsel isim (Z–A)');
 
   // Diary
   String get diaryTitle => _t('Diary', 'Günlük');
   String get diaryEmpty =>
       _t('No sightings yet — tap + to log one', 'Henüz gözlem yok — eklemek için + dokun');
   String get notSureYet => _t('Not sure yet', 'Henüz emin değilim');
+  String get diaryFilterTitle => _t('Sort & Filter', 'Sırala & Filtrele');
+  String get sortNewestFirst => _t('Newest first', 'En yeniden eskiye');
+  String get sortOldestFirst => _t('Oldest first', 'En eskiden yeniye');
+  String get filterSpeciesIdentified =>
+      _t('Species identified', 'Türü belirlenenler');
+  String get filterAny => _t('Any', 'Farketmez');
+  String get filterIdentified => _t('Identified', 'Belirlenmiş');
+  String get filterUnidentified => _t('Unidentified', 'Belirlenmemiş');
+  String get clearFilters => _t('Clear filters', 'Filtreleri temizle');
+  String get done => _t('Done', 'Tamam');
 
   // Add sighting
   String get addSightingTitle => _t('New Sighting', 'Yeni Gözlem');

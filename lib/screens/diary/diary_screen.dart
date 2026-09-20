@@ -6,6 +6,7 @@ import '../../core/app_localizations.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../models/bird_log.dart';
+import '../../models/enums.dart';
 import '../../services/bird_log_service.dart';
 import '../../state/auth_session.dart';
 import '../../widgets/error_retry.dart';
@@ -29,6 +30,14 @@ class DiaryScreen extends StatefulWidget {
 class DiaryScreenState extends State<DiaryScreen> {
   late Future<List<BirdLog>> _future;
 
+  SortDirection _sortDirection = SortDirection.descending;
+  bool? _hasSpecies;
+  Gender? _gender;
+  LifeStage? _lifeStage;
+
+  bool get _hasActiveFilters =>
+      _hasSpecies != null || _gender != null || _lifeStage != null;
+
   @override
   void initState() {
     super.initState();
@@ -37,7 +46,13 @@ class DiaryScreenState extends State<DiaryScreen> {
 
   Future<List<BirdLog>> _load() {
     final userId = context.read<AuthSession>().currentUser!.id;
-    return context.read<BirdLogService>().getForUser(userId);
+    return context.read<BirdLogService>().getForUser(
+          userId,
+          sortDirection: _sortDirection,
+          hasSpecies: _hasSpecies,
+          gender: _gender,
+          lifeStage: _lifeStage,
+        );
   }
 
   void _reload() => setState(() {
@@ -75,6 +90,134 @@ class DiaryScreenState extends State<DiaryScreen> {
     if (changed == true) _reload();
   }
 
+  void _showFilterSheet() {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.backgroundElevated,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            void apply(void Function() mutate) {
+              setSheetState(mutate);
+              setState(mutate);
+              _reload();
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(l10n.diaryFilterTitle,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w600)),
+                        if (_hasActiveFilters)
+                          TextButton(
+                            onPressed: () => apply(() {
+                              _hasSpecies = null;
+                              _gender = null;
+                              _lifeStage = null;
+                            }),
+                            child: Text(l10n.clearFilters),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<SortDirection>(
+                      segments: [
+                        ButtonSegment(
+                          value: SortDirection.descending,
+                          label: Text(l10n.sortNewestFirst),
+                        ),
+                        ButtonSegment(
+                          value: SortDirection.ascending,
+                          label: Text(l10n.sortOldestFirst),
+                        ),
+                      ],
+                      selected: {_sortDirection},
+                      onSelectionChanged: (s) =>
+                          apply(() => _sortDirection = s.first),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(l10n.filterSpeciesIdentified,
+                        style: TextStyle(color: AppTheme.textSecondary)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, children: [
+                      ChoiceChip(
+                        label: Text(l10n.filterAny),
+                        selected: _hasSpecies == null,
+                        onSelected: (_) => apply(() => _hasSpecies = null),
+                      ),
+                      ChoiceChip(
+                        label: Text(l10n.filterIdentified),
+                        selected: _hasSpecies == true,
+                        onSelected: (_) => apply(() => _hasSpecies = true),
+                      ),
+                      ChoiceChip(
+                        label: Text(l10n.filterUnidentified),
+                        selected: _hasSpecies == false,
+                        onSelected: (_) => apply(() => _hasSpecies = false),
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+                    Text(l10n.sectionGender,
+                        style: TextStyle(color: AppTheme.textSecondary)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, children: [
+                      ChoiceChip(
+                        label: Text(l10n.filterAny),
+                        selected: _gender == null,
+                        onSelected: (_) => apply(() => _gender = null),
+                      ),
+                      for (final gender in Gender.values)
+                        ChoiceChip(
+                          label: Text(gender.label(l10n.code)),
+                          selected: _gender == gender,
+                          onSelected: (_) => apply(() => _gender = gender),
+                        ),
+                    ]),
+                    const SizedBox(height: 16),
+                    Text(l10n.sectionLifeStage,
+                        style: TextStyle(color: AppTheme.textSecondary)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, children: [
+                      ChoiceChip(
+                        label: Text(l10n.filterAny),
+                        selected: _lifeStage == null,
+                        onSelected: (_) => apply(() => _lifeStage = null),
+                      ),
+                      for (final stage in LifeStage.values)
+                        ChoiceChip(
+                          label: Text(stage.label(l10n.code)),
+                          selected: _lifeStage == stage,
+                          onSelected: (_) => apply(() => _lifeStage = stage),
+                        ),
+                    ]),
+                    const SizedBox(height: 20),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: Text(l10n.done),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -82,6 +225,13 @@ class DiaryScreenState extends State<DiaryScreen> {
       appBar: AppBar(
         title: FlowingTitle(l10n.diaryTitle, size: 28),
         actions: [
+          IconButton(
+            icon: Icon(
+              _hasActiveFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
+              color: _hasActiveFilters ? AppTheme.accent : null,
+            ),
+            onPressed: _showFilterSheet,
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _openAddSighting,

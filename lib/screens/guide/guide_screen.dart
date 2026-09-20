@@ -22,6 +22,13 @@ class GuideScreen extends StatefulWidget {
   State<GuideScreen> createState() => GuideScreenState();
 }
 
+enum _SpeciesSort {
+  commonNameAsc,
+  commonNameDesc,
+  scientificNameAsc,
+  scientificNameDesc,
+}
+
 /// Public so RootTabView can auto-refresh this tab on reselect — see
 /// DiaryScreenState for why that's needed with IndexedStack.
 class GuideScreenState extends State<GuideScreen> {
@@ -35,6 +42,7 @@ class GuideScreenState extends State<GuideScreen> {
   bool _isLoading = true;
   bool _isLoadingMore = false;
   Object? _error;
+  _SpeciesSort _sortOption = _SpeciesSort.commonNameAsc;
 
   @override
   void initState() {
@@ -59,6 +67,25 @@ class GuideScreenState extends State<GuideScreen> {
     }
   }
 
+  String get _sort {
+    final locale = AppLocalizations.of(context).code;
+    switch (_sortOption) {
+      case _SpeciesSort.commonNameAsc:
+        return 'commonName.$locale,asc';
+      case _SpeciesSort.commonNameDesc:
+        return 'commonName.$locale,desc';
+      case _SpeciesSort.scientificNameAsc:
+        return 'scientificName,asc';
+      case _SpeciesSort.scientificNameDesc:
+        return 'scientificName,desc';
+    }
+  }
+
+  void _changeSort(_SpeciesSort option) {
+    setState(() => _sortOption = option);
+    _loadFirstPage();
+  }
+
   Future<void> _loadFirstPage() async {
     setState(() {
       _isLoading = true;
@@ -67,7 +94,7 @@ class GuideScreenState extends State<GuideScreen> {
     try {
       final page = await context
           .read<SpeciesService>()
-          .search(query: _searchController.text.trim());
+          .search(query: _searchController.text.trim(), sort: _sort);
       if (!mounted) return;
       setState(() {
         _items = page.content;
@@ -90,6 +117,7 @@ class GuideScreenState extends State<GuideScreen> {
       final page = await context.read<SpeciesService>().search(
             query: _searchController.text.trim(),
             page: _nextPage,
+            sort: _sort,
           );
       if (!mounted) return;
       setState(() {
@@ -116,7 +144,38 @@ class GuideScreenState extends State<GuideScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: FlowingTitle(l10n.guideTitle, size: 28)),
+      appBar: AppBar(
+        title: FlowingTitle(l10n.guideTitle, size: 28),
+        actions: [
+          PopupMenuButton<_SpeciesSort>(
+            icon: const Icon(Icons.sort),
+            tooltip: l10n.sortTooltip,
+            onSelected: _changeSort,
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem(
+                value: _SpeciesSort.commonNameAsc,
+                checked: _sortOption == _SpeciesSort.commonNameAsc,
+                child: Text(l10n.sortCommonNameAsc),
+              ),
+              CheckedPopupMenuItem(
+                value: _SpeciesSort.commonNameDesc,
+                checked: _sortOption == _SpeciesSort.commonNameDesc,
+                child: Text(l10n.sortCommonNameDesc),
+              ),
+              CheckedPopupMenuItem(
+                value: _SpeciesSort.scientificNameAsc,
+                checked: _sortOption == _SpeciesSort.scientificNameAsc,
+                child: Text(l10n.sortScientificNameAsc),
+              ),
+              CheckedPopupMenuItem(
+                value: _SpeciesSort.scientificNameDesc,
+                checked: _sortOption == _SpeciesSort.scientificNameDesc,
+                child: Text(l10n.sortScientificNameDesc),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

@@ -11,12 +11,14 @@ class SpeciesService {
 
   final ApiClient _client;
 
-  /// GET /api/species?search=&page=&size= — paginated (Spring Data Page
-  /// envelope) since the backend added pagination to the species guide.
+  /// GET /api/species?search=&page=&size=&sort= — paginated (a versioned
+  /// {content, page} envelope). [sort] is a Spring-style "field,direction"
+  /// string, e.g. "commonName.en,asc" or "scientificName,desc".
   Future<SpeciesPage> search({
     String? query,
     int page = 0,
     int size = 20,
+    String? sort,
   }) async {
     final json = await _client.get(
       '/api/species',
@@ -24,6 +26,7 @@ class SpeciesService {
         if (query != null && query.isNotEmpty) 'search': query,
         'page': page.toString(),
         'size': size.toString(),
+        if (sort != null) 'sort': sort,
       },
       auth: false,
     );

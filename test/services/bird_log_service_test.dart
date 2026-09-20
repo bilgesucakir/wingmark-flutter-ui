@@ -41,7 +41,42 @@ void main() {
 
     expect(client.lastMethod, 'GET');
     expect(client.lastPath, '/api/bird-logs/user/u1');
+    expect(client.lastQuery, isEmpty);
     expect(logs.map((l) => l.id), ['a', 'b']);
+  });
+
+  test('getForUser sends no filter params when none are given', () async {
+    client.response = <dynamic>[];
+    await service.getForUser('u1');
+    expect(client.lastQuery, isEmpty);
+  });
+
+  test('getForUser sends every filter with exact-case backend enum values',
+      () async {
+    client.response = <dynamic>[];
+
+    await service.getForUser(
+      'u1',
+      sortDirection: SortDirection.ascending,
+      hasSpecies: true,
+      gender: Gender.female,
+      lifeStage: LifeStage.baby,
+    );
+
+    expect(client.lastQuery, {
+      'sortDirection': 'ASC',
+      'hasSpecies': 'true',
+      'gender': 'FEMALE',
+      'lifeStage': 'BABY',
+    });
+  });
+
+  test('getForUser only sends the filters that were actually given', () async {
+    client.response = <dynamic>[];
+
+    await service.getForUser('u1', gender: Gender.male);
+
+    expect(client.lastQuery, {'gender': 'MALE'});
   });
 
   test('getInBounds sends the bounding box as query params', () async {
