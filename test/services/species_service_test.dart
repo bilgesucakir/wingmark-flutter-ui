@@ -49,6 +49,19 @@ void main() {
     expect(client.lastQuery, {'search': 'sparrow', 'page': '2', 'size': '10'});
   });
 
+  test('search includes the sort param only when given', () async {
+    client.response = {
+      'content': <dynamic>[],
+      'page': {'totalElements': 0, 'totalPages': 1, 'number': 0, 'size': 20},
+    };
+
+    await service.search();
+    expect(client.lastQuery!.containsKey('sort'), isFalse);
+
+    await service.search(sort: 'commonName.en,asc');
+    expect(client.lastQuery!['sort'], 'commonName.en,asc');
+  });
+
   test('getById GETs /api/species/{id} without auth', () async {
     client.response = _speciesJson('sp1');
 
