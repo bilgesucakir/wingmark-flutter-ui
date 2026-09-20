@@ -24,6 +24,11 @@ class ApiClient {
   final TokenStore _tokenStore;
   final http.Client _client;
 
+  /// Drives the Accept-Language header so the backend resolves locale-keyed
+  /// text (species names, favoriteSpeciesName, etc.) correctly. Kept in
+  /// sync with the app's effective locale from app.dart.
+  String languageCode = 'en';
+
   Future<dynamic> get(
     String path, {
     Map<String, String>? query,
@@ -54,6 +59,7 @@ class ApiClient {
 
     final request = http.Request(method, uri);
     request.headers['Content-Type'] = 'application/json';
+    request.headers['Accept-Language'] = languageCode;
     if (auth && _tokenStore.accessToken != null) {
       request.headers['Authorization'] = 'Bearer ${_tokenStore.accessToken}';
     }

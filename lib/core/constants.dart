@@ -12,3 +12,7 @@ String resolveMediaUrl(String path) {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
   return '$kApiBaseUrl${path.startsWith('/') ? path : '/$path'}';
 }
+
+/// Fallback artwork for a bird log with no uploaded photo (map pins, diary
+/// thumbnails, detail screen).
+const String kBirdPlaceholderAsset = 'assets/images/bird_placeholder.png';

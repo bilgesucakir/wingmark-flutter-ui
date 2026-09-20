@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_client.dart';
 import '../../core/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../models/enums.dart';
@@ -10,9 +11,13 @@ import '../../state/auth_session.dart';
 import '../../state/settings_controller.dart';
 import '../../widgets/section_header.dart';
 
-/// Language is app-local (AppStorage-equivalent, matching Swift). Unit
-/// preference additionally syncs with GET/PUT /api/users/{id}/settings —
-/// the Swift app only ever kept this local.
+/// Language selection updates the Accept-Language header immediately (via
+/// ApiClient.languageCode) and refreshes the cached profile so
+/// server-resolved text (favoriteSpeciesName, species/badge names) catches
+/// up right away, instead of waiting for the next unrelated fetch. Both
+/// language and unit preference are also persisted together via
+/// PUT /api/users/{id}/settings, since sending either field alone would
+/// silently clear the other back to null server-side.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -44,19 +49,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _updateUnitPreference(UnitPreference value) async {
-    final controller = context.read<SettingsController>();
+  /// Persists both fields together on every change so updating one never
+  /// silently clobbers the other back to null on the backend.
+  Future<void> _syncToBackend(SettingsController controller) async {
     final userId = context.read<AuthSession>().currentUser!.id;
     final userService = context.read<UserService>();
-    await controller.setUnitPreference(value);
     try {
       await userService.updateSettings(
         userId,
-        UserSettings(unitPreference: value),
+        UserSettings(
+          unitPreference: controller.unitPreference,
+          locale: controller.effectiveLanguageCode,
+        ),
       );
     } catch (_) {
       // Local preference already applied; backend sync will retry next visit.
     }
+  }
+
+  Future<void> _updateLanguage(AppLanguage value) async {
+    final controller = context.read<SettingsController>();
+    await controller.setLanguage(value);
+    if (!mounted) return;
+    // Update the Accept-Language header immediately rather than waiting for
+    // app.dart's next MaterialApp rebuild, so the very next request (the
+    // profile refresh below) already uses it.
+    context.read<ApiClient>().languageCode = controller.effectiveLanguageCode;
+    await context.read<AuthSession>().refreshProfile();
+    await _syncToBackend(controller);
+  }
+
+  Future<void> _updateUnitPreference(UnitPreference value) async {
+    final controller = context.read<SettingsController>();
+    await controller.setUnitPreference(value);
+    await _syncToBackend(controller);
   }
 
   @override
@@ -73,7 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           RadioGroup<AppLanguage>(
             groupValue: settings.language,
             onChanged: (value) {
-              if (value != null) settings.setLanguage(value);
+              if (value != null) _updateLanguage(value);
             },
             child: Column(
               children: [

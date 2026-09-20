@@ -12,9 +12,11 @@ import '../../services/bird_log_service.dart';
 import '../../state/auth_session.dart';
 import '../../widgets/error_retry.dart';
 import '../../widgets/flowing_title.dart';
+import '../diary/bird_log_detail_screen.dart';
 
 /// Real map view backed by GET /api/bird-logs/user/{userId} — the Swift
-/// app's MapView was still a placeholder icon, this pins actual sightings.
+/// app's MapView was still a placeholder icon, this pins actual sightings
+/// with each log's own photo (or a placeholder silhouette).
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
@@ -49,6 +51,21 @@ class MapScreenState extends State<MapScreen> {
       _future = future;
     });
     await future;
+  }
+
+  void _onMarkerTap(BirdLog log, AppLocalizations l10n) {
+    final point = ll.LatLng(log.latitude!, log.longitude!);
+    // Focus the map on this sighting first, then bring up its details.
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(point, currentZoom < 14 ? 15 : currentZoom);
+    _showSightingSheet(log, l10n);
+  }
+
+  Future<void> _openDetail(BirdLog log) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => BirdLogDetailScreen(log: log)),
+    );
+    if (changed == true) _reload();
   }
 
   @override
@@ -98,15 +115,12 @@ class MapScreenState extends State<MapScreen> {
                       for (final log in logs)
                         Marker(
                           point: ll.LatLng(log.latitude!, log.longitude!),
-                          width: 44,
-                          height: 44,
+                          width: 46,
+                          height: 56,
+                          alignment: Alignment.topCenter,
                           child: GestureDetector(
-                            onTap: () => _showSightingSheet(context, log, l10n),
-                            child: const Icon(
-                              Icons.location_pin,
-                              color: AppTheme.accent,
-                              size: 40,
-                            ),
+                            onTap: () => _onMarkerTap(log, l10n),
+                            child: _PhotoPin(log: log),
                           ),
                         ),
                     ],
@@ -138,28 +152,40 @@ class MapScreenState extends State<MapScreen> {
     );
   }
 
-  void _showSightingSheet(
-      BuildContext context, BirdLog log, AppLocalizations l10n) {
+  void _showSightingSheet(BirdLog log, AppLocalizations l10n) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.backgroundElevated,
-      builder: (context) {
+      builder: (sheetContext) {
         return Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (log.photoUrl != null)
-                ClipRRect(
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openDetail(log);
+                },
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: resolveMediaUrl(log.photoUrl!),
-                    height: 160,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+                  child: log.photoUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: resolveMediaUrl(log.photoUrl!),
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          height: 160,
+                          width: double.infinity,
+                          color: Colors.white,
+                          padding: const EdgeInsets.all(40),
+                          child: Image.asset(kBirdPlaceholderAsset),
+                        ),
                 ),
+              ),
               const SizedBox(height: 12),
               Text(log.displayName(l10n.code),
                   style: const TextStyle(
@@ -178,6 +204,45 @@ class MapScreenState extends State<MapScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// A circular thumbnail (the log's photo, or the bird silhouette fallback)
+/// with a small pin pointer beneath it.
+class _PhotoPin extends StatelessWidget {
+  const _PhotoPin({required this.log});
+
+  final BirdLog log;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: log.photoUrl != null
+                ? AppTheme.backgroundElevated
+                : Colors.white,
+            border: Border.all(color: AppTheme.accent, width: 2),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: log.photoUrl != null
+              ? CachedNetworkImage(
+                  imageUrl: resolveMediaUrl(log.photoUrl!),
+                  fit: BoxFit.cover,
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Image.asset(kBirdPlaceholderAsset),
+                ),
+        ),
+        const Icon(Icons.arrow_drop_down, color: AppTheme.accent, size: 20),
+      ],
     );
   }
 }

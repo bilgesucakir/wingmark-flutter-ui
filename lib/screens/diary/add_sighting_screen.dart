@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -11,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_localizations.dart';
+import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../models/bird_log.dart';
 import '../../models/enums.dart';
@@ -20,18 +22,27 @@ import '../../services/species_service.dart';
 import '../../services/upload_service.dart';
 import '../../widgets/section_header.dart';
 
-/// New-sighting form. Extends the Swift app's AddSightingView with what it
-/// was missing entirely: photo capture, gender, latitude/longitude (required
-/// by the backend), pet/custom-name/visibility — all modeled already but
-/// absent from the original screen.
+/// New-sighting / edit-sighting form. Extends the Swift app's
+/// AddSightingView with what it was missing entirely: photo capture, gender,
+/// latitude/longitude (required by the backend), pet/custom-name — all
+/// modeled already but absent from the original screen.
+///
+/// Pass [existing] to edit a previously logged sighting instead of creating
+/// a new one; the screen prefills every field and calls
+/// PUT /api/bird-logs/{id} instead of POST on save. Either way it pops with
+/// the created/updated [BirdLog], or null if cancelled.
 class AddSightingScreen extends StatefulWidget {
-  const AddSightingScreen({super.key});
+  const AddSightingScreen({super.key, this.existing});
+
+  final BirdLog? existing;
 
   @override
   State<AddSightingScreen> createState() => _AddSightingScreenState();
 }
 
 class _AddSightingScreenState extends State<AddSightingScreen> {
+  bool get _isEditing => widget.existing != null;
+
   DateTime _date = DateTime.now();
   final _locationNameController = TextEditingController();
   final _speciesSearchController = TextEditingController();
@@ -42,6 +53,7 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
   bool _locating = true;
 
   Species? _selectedSpecies;
+  bool _loadingSelectedSpecies = false;
   SpeciesStatus _speciesStatus = SpeciesStatus.confident;
   bool _doesNotKnowSpecies = false;
   List<Species> _searchResults = [];
@@ -52,13 +64,47 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
   bool _isPet = false;
 
   XFile? _photo;
+  String? _existingPhotoUrl;
   bool _saving = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _resolveCurrentLocation();
+    final existing = widget.existing;
+    if (existing != null) {
+      _date = existing.observedAt.toLocal();
+      _locationNameController.text = existing.locationName ?? '';
+      _customNameController.text = existing.customName ?? '';
+      _notesController.text = existing.note ?? '';
+      _lifeStage = existing.lifeStage;
+      _gender = existing.gender;
+      _isPet = existing.pet;
+      _existingPhotoUrl = existing.photoUrl;
+      _speciesStatus = existing.speciesStatus ?? SpeciesStatus.confident;
+      _doesNotKnowSpecies = existing.speciesId == null;
+      if (existing.latitude != null && existing.longitude != null) {
+        _point = ll.LatLng(existing.latitude!, existing.longitude!);
+      }
+      _locating = false;
+      if (existing.speciesId != null) {
+        _loadSelectedSpecies(existing.speciesId!);
+      }
+    } else {
+      _resolveCurrentLocation();
+    }
+  }
+
+  Future<void> _loadSelectedSpecies(String speciesId) async {
+    setState(() => _loadingSelectedSpecies = true);
+    try {
+      final species = await context.read<SpeciesService>().getById(speciesId);
+      if (mounted) setState(() => _selectedSpecies = species);
+    } catch (_) {
+      // Leave the species tile blank rather than block the whole form.
+    } finally {
+      if (mounted) setState(() => _loadingSelectedSpecies = false);
+    }
   }
 
   @override
@@ -123,7 +169,12 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
       maxWidth: 2000,
       imageQuality: 90,
     );
-    if (file != null) setState(() => _photo = file);
+    if (file != null) {
+      setState(() {
+        _photo = file;
+        _existingPhotoUrl = null;
+      });
+    }
   }
 
   Future<void> _pickDate() async {
@@ -165,6 +216,8 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
       String? photoUrl;
       if (_photo != null) {
         photoUrl = await uploadService.uploadPhoto(_photo!.path);
+      } else {
+        photoUrl = _existingPhotoUrl;
       }
 
       final request = BirdLogRequest(
@@ -188,8 +241,10 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
             : _locationNameController.text.trim(),
       );
 
-      await birdLogService.create(request);
-      if (mounted) Navigator.of(context).pop(true);
+      final saved = _isEditing
+          ? await birdLogService.update(widget.existing!.id, request)
+          : await birdLogService.create(request);
+      if (mounted) Navigator.of(context).pop(saved);
     } on ApiException catch (e) {
       setState(() {
         _saving = false;
@@ -209,11 +264,11 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.cancel),
         ),
         leadingWidth: 80,
-        title: Text(l10n.addSightingTitle),
+        title: Text(_isEditing ? l10n.editSightingTitle : l10n.addSightingTitle),
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
@@ -304,7 +359,12 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
             }),
           ),
           if (!_doesNotKnowSpecies) ...[
-            if (_selectedSpecies != null)
+            if (_loadingSelectedSpecies)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: LinearProgressIndicator(color: AppTheme.accent),
+              )
+            else if (_selectedSpecies != null)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(_selectedSpecies!.name(l10n.code)),
@@ -387,24 +447,20 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
           ),
           SectionHeader(l10n.sectionPhoto),
           if (_photo != null)
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(File(_photo!.path),
-                      height: 160, width: double.infinity, fit: BoxFit.cover),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    style: IconButton.styleFrom(
-                        backgroundColor: Colors.black45),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => setState(() => _photo = null),
-                  ),
-                ),
-              ],
+            _PhotoPreview(
+              image: Image.file(File(_photo!.path),
+                  height: 160, width: double.infinity, fit: BoxFit.cover),
+              onRemove: () => setState(() => _photo = null),
+            )
+          else if (_existingPhotoUrl != null)
+            _PhotoPreview(
+              image: CachedNetworkImage(
+                imageUrl: resolveMediaUrl(_existingPhotoUrl!),
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+              onRemove: () => setState(() => _existingPhotoUrl = null),
             )
           else
             OutlinedButton.icon(
@@ -425,6 +481,31 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
           const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+}
+
+class _PhotoPreview extends StatelessWidget {
+  const _PhotoPreview({required this.image, required this.onRemove});
+
+  final Widget image;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        ClipRRect(borderRadius: BorderRadius.circular(12), child: image),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: IconButton(
+            style: IconButton.styleFrom(backgroundColor: Colors.black45),
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: onRemove,
+          ),
+        ),
+      ],
     );
   }
 }

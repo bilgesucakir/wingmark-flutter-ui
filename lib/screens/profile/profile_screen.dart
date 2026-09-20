@@ -9,6 +9,7 @@ import '../../services/bird_log_service.dart';
 import '../../state/auth_session.dart';
 import '../../widgets/error_retry.dart';
 import '../../widgets/flowing_title.dart';
+import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -30,6 +31,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<List<BirdLog>> _load() {
     final userId = context.read<AuthSession>().currentUser!.id;
     return context.read<BirdLogService>().getForUser(userId);
+  }
+
+  Future<void> _openEditProfile() async {
+    final user = context.read<AuthSession>().currentUser!;
+    final updated = await Navigator.of(context).push<Object>(
+      MaterialPageRoute(builder: (_) => EditProfileScreen(user: user)),
+    );
+    if (updated != null && mounted) {
+      await context.read<AuthSession>().refreshProfile();
+    }
   }
 
   Future<void> _confirmLogout() async {
@@ -67,6 +78,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: FlowingTitle(l10n.profileTitle, size: 28),
         actions: [
           IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: _openEditProfile,
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -99,6 +114,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
             ),
           ),
+          if (user.favoriteSpeciesName != null) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                '${l10n.favoriteSpecies}: ${user.favoriteSpeciesName}',
+                style: const TextStyle(
+                    color: AppTheme.accent, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           FutureBuilder<List<BirdLog>>(
             future: _future,

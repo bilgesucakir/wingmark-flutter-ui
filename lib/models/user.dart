@@ -9,6 +9,7 @@ class UserProfile {
   final String lastName;
   final String? profilePicture;
   final String? favoriteSpeciesId;
+  final String? favoriteSpeciesName;
   final Role role;
   final bool emailVerified;
   final DateTime createdAt;
@@ -21,6 +22,7 @@ class UserProfile {
     required this.lastName,
     this.profilePicture,
     this.favoriteSpeciesId,
+    this.favoriteSpeciesName,
     required this.role,
     required this.emailVerified,
     required this.createdAt,
@@ -40,6 +42,7 @@ class UserProfile {
       lastName: (json['lastName'] as String?) ?? '',
       profilePicture: json['profilePicture'] as String?,
       favoriteSpeciesId: json['favoriteSpeciesId'] as String?,
+      favoriteSpeciesName: json['favoriteSpeciesName'] as String?,
       role: Role.fromJson(json['role'] as String?),
       emailVerified: json['emailVerified'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),

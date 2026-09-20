@@ -47,4 +47,19 @@ class SettingsController extends ChangeNotifier {
         return const Locale('tr');
     }
   }
+
+  /// 'en'/'tr' for the backend's Accept-Language header — the app only
+  /// supports those two, so system falls back to 'en' for anything else.
+  String get effectiveLanguageCode {
+    switch (language) {
+      case AppLanguage.english:
+        return 'en';
+      case AppLanguage.turkish:
+        return 'tr';
+      case AppLanguage.system:
+        final deviceCode =
+            WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+        return deviceCode == 'tr' ? 'tr' : 'en';
+    }
+  }
 }
